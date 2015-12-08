@@ -16,12 +16,10 @@ import be.nabu.libs.types.api.ComplexContent;
 public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfiguration> implements StartableArtifact {
 
 	private boolean started;
-	private Repository repository;
 	private Logger logger = LoggerFactory.getLogger(getClass());
 	
 	public StartupServiceArtifact(String id, ResourceContainer<?> directory, Repository repository) {
-		super(id, directory, "startup-service.xml", StartupServiceConfiguration.class);
-		this.repository = repository;
+		super(id, directory, repository, "startup-service.xml", StartupServiceConfiguration.class);
 	}
 
 	@Override
@@ -30,7 +28,7 @@ public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfigura
 		for (String key : getConfiguration().getProperties().keySet()) {
 			content.set(key, getConfiguration().getProperties().get(key));
 		}
-		ServiceRuntime runtime = new ServiceRuntime(getConfiguration().getService(), repository.newExecutionContext(SystemPrincipal.ROOT));
+		ServiceRuntime runtime = new ServiceRuntime(getConfiguration().getService(), getRepository().newExecutionContext(SystemPrincipal.ROOT));
 		try {
 			runtime.run(content);
 			started = true;
