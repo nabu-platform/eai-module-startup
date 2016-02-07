@@ -16,7 +16,11 @@ import be.nabu.libs.types.api.Element;
 
 public class StartupServiceGUIManager extends BaseJAXBGUIManager<StartupServiceConfiguration, StartupServiceArtifact> {
 
-
+	@Override
+	public String getCategory() {
+		return "Miscellaneous";
+	}
+	
 	public StartupServiceGUIManager() {
 		super("Startup Service", StartupServiceArtifact.class, new StartupServiceManager(), StartupServiceConfiguration.class);
 	}
