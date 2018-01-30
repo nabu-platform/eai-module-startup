@@ -12,11 +12,12 @@ import be.nabu.eai.repository.util.KeyValueMapAdapter;
 import be.nabu.libs.services.api.DefinedService;
 
 @XmlRootElement(name = "startupService")
-@XmlType(propOrder = { "service", "properties" })
+@XmlType(propOrder = { "service", "asynchronous", "properties" })
 public class StartupServiceConfiguration {
 	
 	private DefinedService service;
 	private Map<String, String> properties;
+	private boolean asynchronous;
 	
 	@XmlJavaTypeAdapter(value = ArtifactXMLAdapter.class)
 	public DefinedService getService() {
@@ -35,5 +36,11 @@ public class StartupServiceConfiguration {
 	}
 	public void setProperties(Map<String, String> properties) {
 		this.properties = properties;
+	}
+	public boolean isAsynchronous() {
+		return asynchronous;
+	}
+	public void setAsynchronous(boolean asynchronous) {
+		this.asynchronous = asynchronous;
 	}
 }
