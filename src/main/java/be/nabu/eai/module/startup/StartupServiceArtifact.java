@@ -18,7 +18,7 @@ import be.nabu.libs.types.api.ComplexContent;
 
 public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfiguration> implements StartableArtifact, InterruptibleArtifact, StoppableArtifact {
 
-	private boolean interrupted;
+	private volatile boolean interrupted;
 	
 	private class StartableRunner implements Runnable {
 		private boolean aborted;
