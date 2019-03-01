@@ -10,13 +10,13 @@ import be.nabu.eai.repository.api.Repository;
 import be.nabu.eai.repository.artifacts.jaxb.JAXBArtifact;
 import be.nabu.eai.repository.util.SystemPrincipal;
 import be.nabu.libs.artifacts.api.InterruptibleArtifact;
-import be.nabu.libs.artifacts.api.StartableArtifact;
 import be.nabu.libs.artifacts.api.StoppableArtifact;
+import be.nabu.libs.artifacts.api.TwoPhaseStartableArtifact;
 import be.nabu.libs.resources.api.ResourceContainer;
 import be.nabu.libs.services.ServiceRuntime;
 import be.nabu.libs.types.api.ComplexContent;
 
-public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfiguration> implements StartableArtifact, InterruptibleArtifact, StoppableArtifact {
+public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfiguration> implements TwoPhaseStartableArtifact, InterruptibleArtifact, StoppableArtifact {
 
 	private volatile boolean interrupted;
 	
@@ -49,7 +49,7 @@ public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfigura
 		}
 	}
 
-	private boolean started;
+	private boolean started, finished;
 	private Logger logger = LoggerFactory.getLogger(getClass());
 	private Thread thread;
 	private StartableRunner runnable;
@@ -69,10 +69,6 @@ public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfigura
 		if (getConfig().isAsynchronous()) {
 			thread = new RepositoryThreadFactory(getRepository(), true).newThread(runnable);
 			thread.setName(getId());
-			thread.start();
-		}
-		else {
-			runnable.run();
 		}
 	}
 
@@ -108,6 +104,22 @@ public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfigura
 		boolean tmp = interrupted;
 		interrupted = false;
 		return tmp;
+	}
+
+	@Override
+	public void finish() {
+		finished = true;
+		if (getConfig().isAsynchronous()) {
+			thread.start();
+		}
+		else {
+			runnable.run();
+		}
+	}
+
+	@Override
+	public boolean isFinished() {
+		return finished;
 	}
 
 }
