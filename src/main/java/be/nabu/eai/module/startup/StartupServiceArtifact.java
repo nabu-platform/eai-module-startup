@@ -21,7 +21,8 @@ public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfigura
 	private volatile boolean interrupted;
 	
 	private class StartableRunner implements Runnable {
-		private boolean aborted;
+
+		private volatile boolean aborted;
 		private ServiceRuntime runtime;
 
 		public void run() {
@@ -45,14 +46,50 @@ public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfigura
 		
 		private void abort() {
 			aborted = true;
-			runtime.abort();
+			if (runtime != null) {
+				runtime.abort();
+			}
+		}
+	}
+	
+	private class StartableWatcher implements Runnable {
+		
+		private volatile boolean aborted;
+		
+		@Override
+		public void run() {
+			while (!aborted) {
+				// we wait for the running thread to stop
+				try {
+					thread.join();
+				}
+				catch (InterruptedException e) {
+					aborted = true;
+				}
+				// if we didn't get aborted and the running thread stopped, restart it
+				if (!aborted && started) {
+					// the start procedure will set up a new watch dog, let this one die
+					aborted = true;
+					try {
+						start();
+						finish();
+					}
+					catch (Exception e) {
+						logger.error("Could not restart the daemon", e);
+					}
+				}
+			}
+		}
+		private void abort() {
+			aborted = true;
 		}
 	}
 
 	private boolean started, finished;
 	private Logger logger = LoggerFactory.getLogger(getClass());
-	private Thread thread;
+	private Thread thread, watchThread;
 	private StartableRunner runnable;
+	private StartableWatcher watcher;
 	
 	public StartupServiceArtifact(String id, ResourceContainer<?> directory, Repository repository) {
 		super(id, directory, repository, "startup-service.xml", StartupServiceConfiguration.class);
@@ -64,11 +101,18 @@ public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfigura
 		if (isStarted()) {
 			stop();
 		}
-		runnable = new StartableRunner();
-		started = true;
-		if (getConfig().isAsynchronous()) {
-			thread = new RepositoryThreadFactory(getRepository(), true).newThread(runnable);
-			thread.setName(getId());
+		// only start if you have a service
+		if (getConfig().getService() != null) {
+			runnable = new StartableRunner();
+			started = true;
+			if (getConfig().isAsynchronous()) {
+				thread = new RepositoryThreadFactory(getRepository(), true).newThread(runnable);
+				thread.setName(getId());
+				
+				watcher = new StartableWatcher(); 
+				watchThread = new RepositoryThreadFactory(getRepository(), true).newThread(watcher);
+				watchThread.setName(getId() + ":watcher");
+			}
 		}
 	}
 
@@ -87,11 +131,19 @@ public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfigura
 
 	@Override
 	public void stop() throws IOException {
+		started = false;
+		// abort the existing watcher first (so it doesn't try to restart the runnable)
+		if (watcher != null && !watcher.aborted){
+			watcher.abort();
+			watcher = null;
+		}
 		// abort the existing runnable
 		if (runnable != null && !runnable.aborted) {
 			runnable.abort();
-			started = false;
+			runnable = null;
 		}
+		// interrupt the running thread (if necessary)
+		interrupt();
 	}
 
 	@Override
@@ -111,6 +163,8 @@ public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfigura
 		finished = true;
 		if (getConfig().isAsynchronous()) {
 			thread.start();
+			// start watch thread _after_ the run thread
+			watchThread.start();
 		}
 		else {
 			runnable.run();
