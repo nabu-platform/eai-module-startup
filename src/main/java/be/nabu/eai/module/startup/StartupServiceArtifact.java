@@ -58,7 +58,7 @@ public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfigura
 		
 		@Override
 		public void run() {
-			while (!aborted) {
+			while (!aborted && started) {
 				// we wait for the running thread to stop
 				try {
 					thread.join();
