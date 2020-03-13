@@ -1,7 +1,5 @@
 package be.nabu.eai.module.startup;
 
-import java.io.IOException;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -10,13 +8,14 @@ import be.nabu.eai.repository.api.Repository;
 import be.nabu.eai.repository.artifacts.jaxb.JAXBArtifact;
 import be.nabu.eai.repository.util.SystemPrincipal;
 import be.nabu.libs.artifacts.api.InterruptibleArtifact;
+import be.nabu.libs.artifacts.api.PostDeployArtifact;
 import be.nabu.libs.artifacts.api.StoppableArtifact;
 import be.nabu.libs.artifacts.api.TwoPhaseStartableArtifact;
 import be.nabu.libs.resources.api.ResourceContainer;
 import be.nabu.libs.services.ServiceRuntime;
 import be.nabu.libs.types.api.ComplexContent;
 
-public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfiguration> implements TwoPhaseStartableArtifact, InterruptibleArtifact, StoppableArtifact {
+public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfiguration> implements TwoPhaseStartableArtifact, PostDeployArtifact, InterruptibleArtifact, StoppableArtifact {
 
 	private volatile boolean interrupted;
 	
@@ -96,7 +95,7 @@ public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfigura
 	}
 
 	@Override
-	public void start() throws IOException {
+	public void start() {
 		// stop previous if still running
 		if (isStarted()) {
 			stop();
@@ -130,7 +129,7 @@ public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfigura
 	}
 
 	@Override
-	public void stop() throws IOException {
+	public void stop() {
 		started = false;
 		// abort the existing watcher first (so it doesn't try to restart the runnable)
 		if (watcher != null && !watcher.aborted){
@@ -176,4 +175,19 @@ public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfigura
 		return finished;
 	}
 
+	public boolean isRunning() {
+		return getConfig().isAsynchronous() && thread != null && thread.isAlive();
+	}
+	
+	@Override
+	public void postDeploy() {
+		// if it is already running, interrupt it (in case it is sleeping)
+		if (isRunning()) {
+			interrupt();
+		}
+		else {
+			start();
+			finish();
+		}
+	}
 }
