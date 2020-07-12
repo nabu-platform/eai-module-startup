@@ -1,5 +1,7 @@
 package be.nabu.eai.module.startup;
 
+import java.util.HashMap;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,6 +32,8 @@ public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfigura
 			for (String key : getConfig().getProperties().keySet()) {
 				content.set(key, getConfig().getProperties().get(key));
 			}
+			runtime.setContext(new HashMap<String, Object>());
+			runtime.getContext().put("service.source", "startup");
 			try {
 				runtime.run(content);
 			}
