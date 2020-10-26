@@ -1,5 +1,6 @@
 package be.nabu.eai.module.startup;
 
+import java.lang.Thread.State;
 import java.util.HashMap;
 
 import org.slf4j.Logger;
@@ -15,6 +16,7 @@ import be.nabu.libs.artifacts.api.StoppableArtifact;
 import be.nabu.libs.artifacts.api.TwoPhaseStartableArtifact;
 import be.nabu.libs.resources.api.ResourceContainer;
 import be.nabu.libs.services.ServiceRuntime;
+import be.nabu.libs.services.ServiceUtils;
 import be.nabu.libs.types.api.ComplexContent;
 
 public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfiguration> implements TwoPhaseStartableArtifact, PostDeployArtifact, InterruptibleArtifact, StoppableArtifact {
@@ -34,6 +36,8 @@ public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfigura
 			}
 			runtime.setContext(new HashMap<String, Object>());
 			runtime.getContext().put("service.source", "startup");
+			// set the service context explicitly, otherwise it seems to have none in some very strange circumstances...?
+			ServiceUtils.setServiceContext(runtime, getConfig().getService().getId());
 			try {
 				runtime.run(content);
 			}
@@ -128,7 +132,11 @@ public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfigura
 	public void interrupt() {
 		if (thread != null) {
 			interrupted = true;
-			thread.interrupt();
+			// only interrupt threads that are sleeping (there are other reasons for timed_waiting but they are less relevant to us at this point?)
+			// interrupting a thread that is active, can really mess up some things like H2 (using nio), lucene... because apparently nio filechannel just closes it once an interrupt is detected
+			if (thread.getState() == State.TIMED_WAITING) {
+				thread.interrupt();
+			}
 		}
 	}
 
@@ -164,12 +172,12 @@ public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfigura
 	@Override
 	public void finish() {
 		finished = true;
-		if (getConfig().isAsynchronous()) {
+		if (getConfig().isAsynchronous() && thread != null) {
 			thread.start();
 			// start watch thread _after_ the run thread
 			watchThread.start();
 		}
-		else {
+		else if (runnable != null) {
 			runnable.run();
 		}
 	}
