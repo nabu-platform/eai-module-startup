@@ -11,15 +11,16 @@ import be.nabu.eai.repository.api.Repository;
 import be.nabu.eai.repository.artifacts.jaxb.JAXBArtifact;
 import be.nabu.eai.repository.util.SystemPrincipal;
 import be.nabu.libs.artifacts.api.InterruptibleArtifact;
-import be.nabu.libs.artifacts.api.PostDeployArtifact;
+import be.nabu.libs.artifacts.api.DeployHookArtifact;
 import be.nabu.libs.artifacts.api.StoppableArtifact;
+import be.nabu.libs.artifacts.api.TwoPhaseOfflineableArtifact;
 import be.nabu.libs.artifacts.api.TwoPhaseStartableArtifact;
 import be.nabu.libs.resources.api.ResourceContainer;
 import be.nabu.libs.services.ServiceRuntime;
 import be.nabu.libs.services.ServiceUtils;
 import be.nabu.libs.types.api.ComplexContent;
 
-public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfiguration> implements TwoPhaseStartableArtifact, PostDeployArtifact, InterruptibleArtifact, StoppableArtifact {
+public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfiguration> implements TwoPhaseStartableArtifact, DeployHookArtifact, InterruptibleArtifact, StoppableArtifact, TwoPhaseOfflineableArtifact {
 
 	private volatile boolean interrupted;
 	
@@ -104,21 +105,23 @@ public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfigura
 
 	@Override
 	public void start() {
-		// stop previous if still running
-		if (isStarted()) {
-			stop();
-		}
-		// only start if you have a service
-		if (getConfig().getService() != null) {
-			runnable = new StartableRunner();
-			started = true;
-			if (getConfig().isAsynchronous()) {
-				thread = new RepositoryThreadFactory(getRepository(), true).newThread(runnable);
-				thread.setName(getId());
-				
-				watcher = new StartableWatcher(); 
-				watchThread = new RepositoryThreadFactory(getRepository(), true).newThread(watcher);
-				watchThread.setName(getId() + ":watcher");
+		if (getConfig().isRunAtStartup()) {
+			// stop previous if still running
+			if (isStarted()) {
+				stop();
+			}
+			// only start if you have a service
+			if (getConfig().getService() != null) {
+				runnable = new StartableRunner();
+				started = true;
+				if (getConfig().isAsynchronous()) {
+					thread = new RepositoryThreadFactory(getRepository(), true).newThread(runnable);
+					thread.setName(getId());
+					
+					watcher = new StartableWatcher(); 
+					watchThread = new RepositoryThreadFactory(getRepository(), true).newThread(watcher);
+					watchThread.setName(getId() + ":watcher");
+				}
 			}
 		}
 	}
@@ -171,14 +174,18 @@ public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfigura
 
 	@Override
 	public void finish() {
-		finished = true;
-		if (getConfig().isAsynchronous() && thread != null) {
-			thread.start();
-			// start watch thread _after_ the run thread
-			watchThread.start();
-		}
-		else if (runnable != null) {
-			runnable.run();
+		if (getConfig().isRunAtStartup()) {
+			finished = true;
+			if (getConfig().isAsynchronous() && thread != null) {
+				thread.start();
+				// start watch thread _after_ the run thread
+				watchThread.start();
+			}
+			else if (runnable != null) {
+				runnable.run();
+				// if we ran it synchronously, it is no longer in a started state, it is finished
+				started = false;
+			}
 		}
 	}
 
@@ -192,14 +199,35 @@ public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfigura
 	}
 	
 	@Override
-	public void postDeploy() {
-		// if it is already running, interrupt it (in case it is sleeping)
+	public void postDeployment() {
+		if (getConfig().isRunPostDeployment()) {
+			runDirectly();
+		}
+	}
+	
+	@Override
+	public void preDeployment() {
+		if (getConfig().isRunPreDeployment()) {
+			runDirectly();
+		}
+	}
+
+	@Override
+	public void duringDeployment() {
+		if (getConfig().isRunPreDeployment()) {
+			runDirectly();
+		}
+	}
+
+	private void runDirectly() {
+		// this should not occur, as asynchronous should not be combined with deployment hooks
+		// but it was here before, so I left it...
 		if (isRunning()) {
 			interrupt();
 		}
 		else {
-			start();
-			finish();
+			new StartableRunner().run();
 		}
 	}
+	
 }
