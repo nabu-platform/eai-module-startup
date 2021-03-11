@@ -15,12 +15,13 @@ import be.nabu.libs.artifacts.api.DeployHookArtifact;
 import be.nabu.libs.artifacts.api.StoppableArtifact;
 import be.nabu.libs.artifacts.api.TwoPhaseOfflineableArtifact;
 import be.nabu.libs.artifacts.api.TwoPhaseStartableArtifact;
+import be.nabu.libs.artifacts.api.TwoPhaseStoppableArtifact;
 import be.nabu.libs.resources.api.ResourceContainer;
 import be.nabu.libs.services.ServiceRuntime;
 import be.nabu.libs.services.ServiceUtils;
 import be.nabu.libs.types.api.ComplexContent;
 
-public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfiguration> implements TwoPhaseStartableArtifact, DeployHookArtifact, InterruptibleArtifact, StoppableArtifact, TwoPhaseOfflineableArtifact {
+public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfiguration> implements TwoPhaseStartableArtifact, DeployHookArtifact, InterruptibleArtifact, TwoPhaseStoppableArtifact, TwoPhaseOfflineableArtifact {
 
 	private volatile boolean interrupted;
 	
@@ -214,12 +215,12 @@ public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfigura
 
 	@Override
 	public void duringDeployment() {
-		if (getConfig().isRunPreDeployment()) {
+		if (getConfig().isRunDuringDeployment()) {
 			runDirectly();
 		}
 	}
 
-	private void runDirectly() {
+	protected void runDirectly() {
 		// this should not occur, as asynchronous should not be combined with deployment hooks
 		// but it was here before, so I left it...
 		if (isRunning()) {
@@ -228,6 +229,12 @@ public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfigura
 		else {
 			new StartableRunner().run();
 		}
+	}
+
+	// we want an early stop, as early as possible!
+	@Override
+	public void halt() {
+		stop();
 	}
 	
 }

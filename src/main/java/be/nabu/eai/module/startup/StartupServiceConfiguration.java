@@ -13,7 +13,7 @@ import be.nabu.libs.services.api.DefinedService;
 import be.nabu.libs.types.api.annotation.Field;
 
 @XmlRootElement(name = "startupService")
-@XmlType(propOrder = { "service", "asynchronous", "runPostDeployment", "properties", "runPreDeployment", "runDuringDeployment", "runAtStartup" })
+@XmlType(propOrder = { "service", "asynchronous", "runPostDeployment", "properties", "runPreDeployment", "runDuringDeployment", "runAtStartup", "runAfterStartup" })
 public class StartupServiceConfiguration {
 	
 	private DefinedService service;
@@ -21,6 +21,7 @@ public class StartupServiceConfiguration {
 	private boolean asynchronous;
 	// the hooks
 	private boolean runAtStartup = true, runDuringDeployment, runPostDeployment, runPreDeployment;
+	private boolean runAfterStartup;
 	
 	@XmlJavaTypeAdapter(value = ArtifactXMLAdapter.class)
 	public DefinedService getService() {
@@ -41,7 +42,7 @@ public class StartupServiceConfiguration {
 		this.properties = properties;
 	}
 	
-	@Field(hide = "runPostDeployment = true || runPreDeployment = true || runDuringDeployment = true", comment = "By default all startup services are run synchronously. You can however run them in a separate thread if necessary (e.g. for service daemons).")
+	@Field(hide = "!runAtStartup", comment = "By default all startup services are run synchronously. You can however run them in a separate thread if necessary (e.g. for service daemons). Note that this only works for services that run at startup.")
 	public boolean isAsynchronous() {
 		return asynchronous;
 	}
@@ -59,7 +60,7 @@ public class StartupServiceConfiguration {
 		this.runPostDeployment = runPostDeployment;
 	}
 	
-	@Field(comment = "If you enable this, the service will be run every time the server starts up or is brought back online after it has been taken offline.")
+	@Field(comment = "If you enable this, the service will be run every time the server starts up or is brought back online after it has been taken offline. Note that this is during the startup phase.")
 	public boolean isRunAtStartup() {
 		return runAtStartup;
 	}
@@ -67,7 +68,15 @@ public class StartupServiceConfiguration {
 		this.runAtStartup = runAtStartup;
 	}
 	
-	@Field(comment = "If you enable this, the service will be run after the initial deployment is done but before any deployment actions are run. This can be a good time to for instance synchronize DDLs if you are inserting brand new DMLs during the deployment actions.")
+	@Field(comment = "If you enable this, the service will be run after the startup phase is complete and everything is online.")
+	public boolean isRunAfterStartup() {
+		return runAfterStartup;
+	}
+	public void setRunAfterStartup(boolean runAfterStartup) {
+		this.runAfterStartup = runAfterStartup;
+	}
+	
+	@Field(hide = "asynchronous = true", comment = "If you enable this, the service will be run after the initial deployment is done but before any deployment actions are run. This can be a good time to for instance synchronize DDLs if you are inserting brand new DMLs during the deployment actions.")
 	public boolean isRunDuringDeployment() {
 		return runDuringDeployment;
 	}
@@ -75,7 +84,7 @@ public class StartupServiceConfiguration {
 		this.runDuringDeployment = runDuringDeployment;
 	}
 
-	@Field(comment = "If you enable this, the service will be run before a deployment starts.")
+	@Field(hide = "asynchronous = true", comment = "If you enable this, the service will be run before a deployment starts.")
 	public boolean isRunPreDeployment() {
 		return runPreDeployment;
 	}
