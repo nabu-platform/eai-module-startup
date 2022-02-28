@@ -9,11 +9,12 @@ import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.eai.repository.util.KeyValueMapAdapter;
+import be.nabu.libs.artifacts.api.StartableArtifact.StartPhase;
 import be.nabu.libs.services.api.DefinedService;
 import be.nabu.libs.types.api.annotation.Field;
 
 @XmlRootElement(name = "startupService")
-@XmlType(propOrder = { "service", "asynchronous", "runPostDeployment", "properties", "runPreDeployment", "runDuringDeployment", "runAtStartup", "runAfterStartup" })
+@XmlType(propOrder = { "service", "asynchronous", "runPostDeployment", "properties", "runPreDeployment", "runDuringDeployment", "runAtStartup", "runAfterStartup", "startPhase" })
 public class StartupServiceConfiguration {
 	
 	private DefinedService service;
@@ -22,6 +23,7 @@ public class StartupServiceConfiguration {
 	// the hooks
 	private boolean runAtStartup = true, runDuringDeployment, runPostDeployment, runPreDeployment;
 	private boolean runAfterStartup;
+	private StartPhase startPhase;
 	
 	@XmlJavaTypeAdapter(value = ArtifactXMLAdapter.class)
 	public DefinedService getService() {
@@ -91,5 +93,12 @@ public class StartupServiceConfiguration {
 	public void setRunPreDeployment(boolean runPreDeployment) {
 		this.runPreDeployment = runPreDeployment;
 	}
-
+	
+	@Field(hide = "!runAtStartup", comment = "By default it will run in the LATE phase, after all the other startables. In some cases you may want to move it.")
+	public StartPhase getStartPhase() {
+		return startPhase;
+	}
+	public void setStartPhase(StartPhase startPhase) {
+		this.startPhase = startPhase;
+	}
 }

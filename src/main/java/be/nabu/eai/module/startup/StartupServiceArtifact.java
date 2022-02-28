@@ -163,7 +163,7 @@ public class StartupServiceArtifact extends JAXBArtifact<StartupServiceConfigura
 
 	@Override
 	public StartPhase getPhase() {
-		return StartPhase.LATE;
+		return getConfig().getStartPhase() == null ? StartPhase.LATE : getConfig().getStartPhase();
 	}
 
 	@Override
