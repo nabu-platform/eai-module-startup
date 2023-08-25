@@ -70,7 +70,7 @@ public class StartupServiceConfiguration {
 		this.runAtStartup = runAtStartup;
 	}
 	
-	@Field(comment = "If you enable this, the service will be run after the startup phase is complete and everything is online.")
+	@Field(hide = "asynchronous = true", comment = "If you enable this, the service will be run after the startup phase is complete and everything is online.")
 	public boolean isRunAfterStartup() {
 		return runAfterStartup;
 	}
